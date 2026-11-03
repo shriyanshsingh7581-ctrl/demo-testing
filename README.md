@@ -1,11 +1,39 @@
-<div align="center">
+# Thanker: Salon (Jaunpur) — Nearby Salon Discovery & Live Queue Token Booking
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+**Jaunpur's #1 Smart Salon Finder & Live Token Booking System** with real-time queue tracking and a Salon Partner Admin Panel (`PIN: 7777`).
 
-  <h1>Built with AI Studio</h2>
+---
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## Vercel Deployment Guide (Step-by-Step)
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+Is project mein **Vercel deployment** ke liye sabhi zaroori configuration files pehle se added hain:
+- `vercel.json` — Vite framework build settings (`npm run build` -> `dist`) aur SPA routing rewrites (`/(.*) -> /index.html`) taaki `/admin` page refresh karne par kabhi `404 Not Found` error na aaye.
+- `.vercelignore` — Unnecessary local cache/test files ko ignore karne ke liye.
+- `public/_redirects` — Static SPA routing fallback ke liye.
 
-</div>
+### Method 1: GitHub se Vercel par Deploy karein (Recommended)
+1. Is project ke code ko apne **GitHub Repository** mein push karein (AI Studio ke top bar se **Export to GitHub** ya **Download ZIP** karke).
+2. [vercel.com](https://vercel.com) par login karein aur **"Add New..." -> "Project"** par click karein.
+3. Apna GitHub repository **Import** karein.
+4. Vercel automatically `vercel.json` detect kar lega:
+   - **Framework Preset:** `Vite`
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+5. **"Deploy"** button par click karein — 1 minute ke andar aapki live link ready ho jayegi!
+
+### Method 2: Vercel CLI se Direct Deploy karein
+Agar aap apne computer ke terminal se deploy karna chahte hain:
+```bash
+npm install
+npm run build
+npx vercel --prod
+```
+
+---
+
+## Live Application Routes & Demo Credentials
+
+- **Customer App (Jaunpur Salon Discovery & Live Token Booking):** `/`
+- **Salon Partner Admin Panel (Live Queue Controller):** `/admin` (ya top/bottom switcher button)
+- **Demo Admin PIN:** `7777`
+- **WhatsApp Ticket Number:** `+91 7043602377`

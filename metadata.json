@@ -1,0 +1,6 @@
+{
+  "name": "Thanker: Salon — Jaunpur Live Token & Salon Finder",
+  "description": "Jaunpur's #1 Smart Salon Finder & Live Queue Token Booking System with real-time queue tracking and Salon Partner Admin controller.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
