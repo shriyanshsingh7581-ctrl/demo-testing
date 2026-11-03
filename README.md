@@ -1,39 +1,25 @@
 # Thanker: Salon (Jaunpur) — Nearby Salon Discovery & Live Queue Token Booking
 
-**Jaunpur's #1 Smart Salon Finder & Live Token Booking System** with real-time queue tracking and a Salon Partner Admin Panel (`PIN: 7777`).
+**Jaunpur's #1 Smart Salon Finder & Live Token Booking System** with real-time queue tracking and a separate Salon Partner Admin Portal.
 
 ---
 
-## Vercel Deployment Guide (Step-by-Step)
+## Separate URLs for Customer Website & Admin Panel
 
-Is project mein **Vercel deployment** ke liye sabhi zaroori configuration files pehle se added hain:
-- `vercel.json` — Vite framework build settings (`npm run build` -> `dist`) aur SPA routing rewrites (`/(.*) -> /index.html`) taaki `/admin` page refresh karne par kabhi `404 Not Found` error na aaye.
-- `.vercelignore` — Unnecessary local cache/test files ko ignore karne ke liye.
-- `public/_redirects` — Static SPA routing fallback ke liye.
+Customer website par **Admin Panel** ka koi button ya link nahi dikhta hai. Dono ke alag URLs hain:
 
-### Method 1: GitHub se Vercel par Deploy karein (Recommended)
-1. Is project ke code ko apne **GitHub Repository** mein push karein (AI Studio ke top bar se **Export to GitHub** ya **Download ZIP** karke).
-2. [vercel.com](https://vercel.com) par login karein aur **"Add New..." -> "Project"** par click karein.
-3. Apna GitHub repository **Import** karein.
-4. Vercel automatically `vercel.json` detect kar lega:
-   - **Framework Preset:** `Vite`
-   - **Build Command:** `npm run build`
-   - **Output Directory:** `dist`
-5. **"Deploy"** button par click karein — 1 minute ke andar aapki live link ready ho jayegi!
+1. **Public Customer Website (Main URL):**
+   - `https://your-project-name.vercel.app/`
+   - Yahan sirf Customers ke liye Nearby Salons, Search, Area Filters, aur Live Token Booking dikhega.
 
-### Method 2: Vercel CLI se Direct Deploy karein
-Agar aap apne computer ke terminal se deploy karna chahte hain:
-```bash
-npm install
-npm run build
-npx vercel --prod
-```
+2. **Secret Salon Partner Admin Panel (`/admin` URL):**
+   - `https://your-project-name.vercel.app/admin` (ya `/?admin=true` / `/#/admin`)
+   - **Admin PIN:** `7777`
+   - Ye URL sirf Salon Owner / Admin ke liye hai jahan se Live Queue (`Call Next Token`, `Walk-In Token`, `Salon Management`) control hota hai.
 
 ---
 
-## Live Application Routes & Demo Credentials
+## Vercel Deployment Guide
 
-- **Customer App (Jaunpur Salon Discovery & Live Token Booking):** `/`
-- **Salon Partner Admin Panel (Live Queue Controller):** `/admin` (ya top/bottom switcher button)
-- **Demo Admin PIN:** `7777`
-- **WhatsApp Ticket Number:** `+91 7043602377`
+1. Code ko **GitHub** par push/sync karein.
+2. [vercel.com](https://vercel.com) par project **Deploy / Redeploy** karein (`vercel.json` aur `.npmrc` pehle se configured hain).

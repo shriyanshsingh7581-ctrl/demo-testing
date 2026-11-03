@@ -56,14 +56,23 @@ const AREA_PILLS: JaunpurArea[] = [
   'Shortest Wait Time',
 ];
 
-type MobileTab = 'explore' | 'mytoken' | 'bookings' | 'admin';
+type MobileTab = 'explore' | 'nowait' | 'mytoken' | 'bookings';
 
 export default function App() {
-  // Check URL path for /admin support
+  // Check URL path, hash, or query for dedicated /admin portal
   const getInitialModeFromPath = (): 'customer' | 'admin' => {
     if (typeof window !== 'undefined') {
       const path = window.location.pathname.toLowerCase();
-      if (path === '/admin' || path.startsWith('/admin/')) {
+      const hash = window.location.hash.toLowerCase();
+      const params = new URLSearchParams(window.location.search);
+      if (
+        path === '/admin' ||
+        path.startsWith('/admin/') ||
+        hash === '#admin' ||
+        hash === '#/admin' ||
+        params.get('admin') === '1' ||
+        params.get('admin') === 'true'
+      ) {
         return 'admin';
       }
     }
@@ -73,9 +82,7 @@ export default function App() {
   const [appMode, setAppMode] = useState<'customer' | 'admin'>(
     getInitialModeFromPath
   );
-  const [mobileTab, setMobileTab] = useState<MobileTab>(() =>
-    getInitialModeFromPath() === 'admin' ? 'admin' : 'explore'
-  );
+  const [mobileTab, setMobileTab] = useState<MobileTab>('explore');
 
   // Admin PIN unlock state (supports ?autostart=1 or ?admin_unlocked=1 for quick testing)
   const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(() => {
@@ -188,30 +195,42 @@ export default function App() {
   const switchAppMode = (mode: 'customer' | 'admin', tab?: MobileTab) => {
     setAppMode(mode);
     if (mode === 'admin') {
-      setMobileTab('admin');
       if (window.location.pathname !== '/admin') {
         window.history.pushState({}, '', '/admin');
       }
     } else {
-      setMobileTab(tab || 'explore');
-      if (window.location.pathname === '/admin') {
+      if (tab === 'nowait') {
+        setSelectedArea('Shortest Wait Time');
+        setMobileTab('nowait');
+      } else {
+        if (tab === 'explore' && mobileTab === 'nowait') {
+          setSelectedArea('All Jaunpur');
+        }
+        setMobileTab(tab || 'explore');
+      }
+      if (
+        window.location.pathname.toLowerCase().startsWith('/admin') ||
+        window.location.hash.toLowerCase().includes('admin')
+      ) {
         window.history.pushState({}, '', '/');
       }
     }
   };
 
   useEffect(() => {
-    const onPopState = () => {
-      if (window.location.pathname.toLowerCase().startsWith('/admin')) {
-        setAppMode('admin');
-        setMobileTab('admin');
-      } else {
-        setAppMode('customer');
+    const onUrlChange = () => {
+      const nextMode = getInitialModeFromPath();
+      setAppMode(nextMode);
+      if (nextMode === 'customer') {
         setMobileTab('explore');
       }
     };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
+    window.addEventListener('popstate', onUrlChange);
+    window.addEventListener('hashchange', onUrlChange);
+    return () => {
+      window.removeEventListener('popstate', onUrlChange);
+      window.removeEventListener('hashchange', onUrlChange);
+    };
   }, []);
 
   const handleDetectGps = () => {
@@ -393,102 +412,111 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 lg:h-16 flex items-center justify-between gap-4 lg:gap-8">
           {/* Zone 1: Single text element wordmark */}
           <a
-            href="/"
+            href={appMode === 'admin' ? '/admin' : '/'}
             onClick={(e) => {
               e.preventDefault();
-              switchAppMode('customer', 'explore');
+              if (appMode === 'customer') {
+                switchAppMode('customer', 'explore');
+              }
             }}
             className="text-lg lg:text-xl font-extrabold tracking-tight text-amber-400 font-display whitespace-nowrap shrink-0"
           >
-            Thanker: Salon
+            {appMode === 'admin' ? 'Thanker: Salon Admin' : 'Thanker: Salon'}
           </a>
 
-          {/* Zone 2: 4 concise single-line navigation links */}
-          <nav
-            aria-label="Primary Navigation"
-            className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300"
-          >
-            <button
-              type="button"
-              onClick={() => switchAppMode('customer', 'explore')}
-              className={`hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                appMode === 'customer' && mobileTab === 'explore'
-                  ? 'text-amber-400 underline underline-offset-8 decoration-2'
-                  : ''
-              }`}
+          {/* Zone 2: Customer-Only Navigation Links (hidden when on /admin) */}
+          {appMode === 'customer' ? (
+            <nav
+              aria-label="Primary Navigation"
+              className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-300"
             >
-              Explore Nearby
-            </button>
-            <button
-              type="button"
-              onClick={() => switchAppMode('customer', 'mytoken')}
-              className={`hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                appMode === 'customer' && mobileTab === 'mytoken'
-                  ? 'text-amber-400 underline underline-offset-8 decoration-2'
-                  : ''
-              }`}
-            >
-              My Live Token
-            </button>
-            <button
-              type="button"
-              onClick={() => switchAppMode('customer', 'bookings')}
-              className={`hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                appMode === 'customer' && mobileTab === 'bookings'
-                  ? 'text-amber-400 underline underline-offset-8 decoration-2'
-                  : ''
-              }`}
-            >
-              Bookings ({myTokens.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => switchAppMode('admin')}
-              className={`hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                appMode === 'admin'
-                  ? 'text-amber-400 underline underline-offset-8 decoration-2'
-                  : ''
-              }`}
-            >
-              Partner Admin
-            </button>
-          </nav>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedArea('All Jaunpur');
+                  switchAppMode('customer', 'explore');
+                }}
+                className={`hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  mobileTab === 'explore' && selectedArea !== 'Shortest Wait Time'
+                    ? 'text-amber-400 underline underline-offset-8 decoration-2'
+                    : ''
+                }`}
+              >
+                Explore Nearby
+              </button>
+              <button
+                type="button"
+                onClick={() => switchAppMode('customer', 'nowait')}
+                className={`hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  selectedArea === 'Shortest Wait Time' || mobileTab === 'nowait'
+                    ? 'text-amber-400 underline underline-offset-8 decoration-2'
+                    : ''
+                }`}
+              >
+                Shortest Wait
+              </button>
+              <button
+                type="button"
+                onClick={() => switchAppMode('customer', 'mytoken')}
+                className={`hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  mobileTab === 'mytoken'
+                    ? 'text-amber-400 underline underline-offset-8 decoration-2'
+                    : ''
+                }`}
+              >
+                My Live Token
+              </button>
+              <button
+                type="button"
+                onClick={() => switchAppMode('customer', 'bookings')}
+                className={`hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  mobileTab === 'bookings'
+                    ? 'text-amber-400 underline underline-offset-8 decoration-2'
+                    : ''
+                }`}
+              >
+                Bookings ({myTokens.length})
+              </button>
+            </nav>
+          ) : (
+            <div className="hidden md:flex items-center gap-2 text-xs font-medium text-slate-400">
+              <span>Dedicated Salon Partner Portal (/admin)</span>
+            </div>
+          )}
 
           {/* Zone 3: 1 Primary Action Button */}
           <div className="flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() =>
-                appMode === 'admin'
-                  ? switchAppMode('customer', 'explore')
-                  : switchAppMode('admin')
-              }
-              className="px-3.5 py-1.5 min-h-[38px] lg:min-h-[40px] text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-sm"
-            >
-              {appMode === 'admin'
-                ? 'Switch to Customer App'
-                : 'Partner Admin (PIN: 7777)'}
-            </button>
+            {appMode === 'admin' ? (
+              <button
+                type="button"
+                onClick={() => switchAppMode('customer', 'explore')}
+                className="px-3.5 py-1.5 min-h-[38px] lg:min-h-[40px] text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-sm"
+              >
+                Open Customer Website
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setBookingModalSalonId(salons[0].id)}
+                className="px-3.5 py-1.5 min-h-[38px] lg:min-h-[40px] text-xs font-bold text-slate-950 bg-amber-500 hover:bg-amber-400 rounded-xl transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-sm"
+              >
+                Book Instant Token
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      {/* WORKSPACE MODE SWITCHER & GPS LOCATION TOOLBAR (Below Top Header) */}
-      <div className="bg-slate-900/90 border-b border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 lg:py-3 flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 lg:gap-3">
-          {/* Brand Tagline & Live GPS Location Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 min-w-0">
+      {/* GPS LOCATION BAR (Customer View Only) */}
+      {appMode === 'customer' && (
+        <div className="bg-slate-900/90 border-b border-slate-800/80">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 lg:py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <p className="text-xs font-semibold text-amber-400">
               Jaunpur&apos;s #1 Smart Salon Finder &amp; Live Token Booking
               System
             </p>
-            <span
-              className="hidden sm:inline text-slate-700"
-              aria-hidden="true"
-            >
-              |
-            </span>
-            <div className="flex items-center justify-between sm:justify-start gap-2 text-xs text-slate-300 min-w-0">
+
+            <div className="flex items-center justify-between sm:justify-end gap-2.5 text-xs text-slate-300 min-w-0">
               <div className="flex items-center gap-1.5 min-w-0 truncate">
                 <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 <span className="truncate">
@@ -507,47 +535,17 @@ export default function App() {
             </div>
           </div>
 
-          {/* Floating Mode Switcher Segmented Control */}
-          <div
-            role="group"
-            aria-label="Application View Mode Switcher"
-            className="grid grid-cols-2 sm:flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 w-full sm:w-auto"
-          >
-            <button
-              type="button"
-              onClick={() => switchAppMode('customer', 'explore')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap truncate ${
-                appMode === 'customer'
-                  ? 'bg-emerald-500 text-slate-950 font-bold'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Customer App (Jaunpur)
-            </button>
-            <button
-              type="button"
-              onClick={() => switchAppMode('admin')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap truncate ${
-                appMode === 'admin'
-                  ? 'bg-amber-500 text-slate-950 font-bold'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Salon Partner Admin (PIN: 7777)
-            </button>
-          </div>
-        </div>
-
-        {gpsStatusToast && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-2.5">
-            <div className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300 font-medium">
-              {gpsStatusToast}
+          {gpsStatusToast && (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-2.5">
+              <div className="px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs text-emerald-300 font-medium">
+                {gpsStatusToast}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
-      {/* MAIN VIEWPORT: ADMIN VIEW vs CUSTOMER VIEW */}
+      {/* MAIN VIEWPORT: DEDICATED /admin PORTAL vs CUSTOMER WEBSITE */}
       <main className="flex-1">
         {appMode === 'admin' ? (
           <AdminPanel
@@ -600,7 +598,10 @@ export default function App() {
                       type="button"
                       onClick={() => {
                         setSelectedArea(area);
-                        if (mobileTab !== 'explore') {
+                        if (
+                          mobileTab !== 'explore' &&
+                          mobileTab !== 'nowait'
+                        ) {
                           setMobileTab('explore');
                         }
                       }}
@@ -703,10 +704,12 @@ export default function App() {
               </div>
             )}
 
-            {/* DESKTOP 12-COLUMN SPLIT LAYOUT & MOBILE EXPLORE VIEW */}
+            {/* DESKTOP 12-COLUMN SPLIT LAYOUT & MOBILE EXPLORE / SHORTEST WAIT VIEW */}
             <div
               className={`${
-                mobileTab !== 'explore' ? 'hidden lg:grid' : 'grid'
+                mobileTab !== 'explore' && mobileTab !== 'nowait'
+                  ? 'hidden lg:grid'
+                  : 'grid'
               } grid-cols-1 lg:grid-cols-12 gap-6 items-start`}
             >
               {/* LEFT SIDEBAR (2 Cols on Desktop): Jaunpur Area Filters & Queue Wait-Time Filters */}
@@ -1011,7 +1014,7 @@ export default function App() {
                       </p>
                     </div>
 
-                    {/* Quick 1-Click Demo Booking for Thanker Flagship */}
+                    {/* Customer-Only Quick Actions */}
                     <div className="space-y-2 pt-1">
                       <button
                         type="button"
@@ -1028,11 +1031,11 @@ export default function App() {
 
                       <button
                         type="button"
-                        onClick={() => switchAppMode('admin')}
+                        onClick={() => setSelectedArea('Shortest Wait Time')}
                         className="w-full min-h-[40px] px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
-                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Open Partner Admin (PIN: 7777)</span>
+                        <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Show Shortest Wait Salons First</span>
                       </button>
                     </div>
                   </div>
@@ -1043,76 +1046,81 @@ export default function App() {
         )}
       </main>
 
-      {/* MOBILE FIXED BOTTOM NAVIGATION BAR (4 Tabs: Explore Nearby, My Live Token, Bookings, Partner Admin) */}
-      <nav
-        aria-label="Mobile Bottom Navigation"
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-4 items-center h-16 px-2"
-      >
-        <button
-          type="button"
-          onClick={() => switchAppMode('customer', 'explore')}
-          className={`min-h-[48px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
-            appMode === 'customer' && mobileTab === 'explore'
-              ? 'text-amber-400 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
+      {/* CUSTOMER MOBILE FIXED BOTTOM NAVIGATION BAR (Customer Tabs Only — Hidden on /admin) */}
+      {appMode === 'customer' && (
+        <nav
+          aria-label="Mobile Bottom Navigation"
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 grid grid-cols-4 items-center h-16 px-2"
         >
-          <Compass className="w-5 h-5" />
-          <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">
-            Explore Nearby
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => switchAppMode('customer', 'mytoken')}
-          className={`min-h-[48px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer relative ${
-            appMode === 'customer' && mobileTab === 'mytoken'
-              ? 'text-emerald-400 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <Ticket className="w-5 h-5" />
-          <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">
-            My Live Token
-          </span>
-          {syncedLatestToken && (
-            <span className="absolute top-1 right-4 px-1 rounded bg-emerald-500 text-slate-950 font-mono font-bold text-[9px]">
-              {formatTokenNumber(syncedLatestToken.tokenNumber)}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedArea('All Jaunpur');
+              switchAppMode('customer', 'explore');
+            }}
+            className={`min-h-[48px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
+              mobileTab === 'explore' && selectedArea !== 'Shortest Wait Time'
+                ? 'text-amber-400 font-bold'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Compass className="w-5 h-5" />
+            <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">
+              Explore Nearby
             </span>
-          )}
-        </button>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => switchAppMode('customer', 'bookings')}
-          className={`min-h-[48px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
-            appMode === 'customer' && mobileTab === 'bookings'
-              ? 'text-amber-400 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <CalendarCheck className="w-5 h-5" />
-          <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">
-            Bookings ({myTokens.length})
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => switchAppMode('customer', 'nowait')}
+            className={`min-h-[48px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
+              mobileTab === 'nowait' || selectedArea === 'Shortest Wait Time'
+                ? 'text-amber-400 font-bold'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Clock className="w-5 h-5" />
+            <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">
+              Shortest Wait
+            </span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => switchAppMode('admin')}
-          className={`min-h-[48px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
-            appMode === 'admin'
-              ? 'text-amber-400 font-bold'
-              : 'text-slate-400 hover:text-white'
-          }`}
-        >
-          <ShieldCheck className="w-5 h-5" />
-          <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">
-            Partner Admin
-          </span>
-        </button>
-      </nav>
+          <button
+            type="button"
+            onClick={() => switchAppMode('customer', 'mytoken')}
+            className={`min-h-[48px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer relative ${
+              mobileTab === 'mytoken'
+                ? 'text-emerald-400 font-bold'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Ticket className="w-5 h-5" />
+            <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">
+              My Live Token
+            </span>
+            {syncedLatestToken && (
+              <span className="absolute top-1 right-4 px-1 rounded bg-emerald-500 text-slate-950 font-mono font-bold text-[9px]">
+                {formatTokenNumber(syncedLatestToken.tokenNumber)}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => switchAppMode('customer', 'bookings')}
+            className={`min-h-[48px] flex flex-col items-center justify-center rounded-xl transition-colors cursor-pointer ${
+              mobileTab === 'bookings'
+                ? 'text-amber-400 font-bold'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <CalendarCheck className="w-5 h-5" />
+            <span className="text-[10px] mt-1 tracking-tight whitespace-nowrap">
+              Bookings ({myTokens.length})
+            </span>
+          </button>
+        </nav>
+      )}
 
       {/* Interactive Token Booking Modal / Bottom Sheet Drawer */}
       <BookingModal
