@@ -1,6 +1,7 @@
 node_modules
 .playwright-cli
 .aistudio
+public/assets/aistudio
 .env
 .env.local
 *.log
