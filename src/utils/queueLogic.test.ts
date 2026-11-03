@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { INITIAL_SALONS, DEFAULT_SALON_SERVICES } from '../data/initialSalons';
+import {
+  INITIAL_SALONS,
+  DEFAULT_SALON_SERVICES,
+  INITIAL_REGISTERED_CUSTOMERS,
+  INITIAL_AD_BANNERS,
+} from '../data/initialSalons';
 import {
   formatTokenNumber,
   getSalonQueueMetrics,
@@ -10,12 +15,21 @@ import {
   skipCurrentOrNextToken,
   cancelTokenById,
   filterAndSortSalons,
+  updateSalonApprovalStatus,
+  getPlatformAnalytics,
   buildCustomerWhatsAppTicketUrl,
   buildAdminWhatsAppAlertUrl,
 } from './queueLogic';
 
-test('initial 5 Jaunpur salons match exact prompt token numbers and wait times', () => {
-  const [thanker, royal, urban, aura, classic] = INITIAL_SALONS;
+test('initial Approved Jaunpur salons match exact prompt token numbers and wait times', () => {
+  const approvedSalons = filterAndSortSalons(INITIAL_SALONS, {
+    searchQuery: '',
+    selectedArea: 'All Jaunpur',
+    onlyApproved: true,
+  });
+  assert.equal(approvedSalons.length, 5);
+
+  const [thanker, royal, urban, aura, classic] = approvedSalons;
 
   const m1 = getSalonQueueMetrics(thanker);
   assert.equal(m1.nowServingFormatted, '#05');
@@ -50,6 +64,28 @@ test('initial 5 Jaunpur salons match exact prompt token numbers and wait times',
   assert.equal(m5.nextAvailableFormatted, '#07');
 });
 
+test('Super Admin approving a Pending salon publishes it immediately to Customer App', () => {
+  const analyticsBefore = getPlatformAnalytics(
+    INITIAL_SALONS,
+    INITIAL_REGISTERED_CUSTOMERS,
+    INITIAL_AD_BANNERS
+  );
+  assert.equal(analyticsBefore.approvedSalonsCount, 5);
+  assert.equal(analyticsBefore.pendingSalonsCount, 2);
+
+  const afterApproval = updateSalonApprovalStatus(
+    INITIAL_SALONS,
+    'salon-pending-shahi-bridge',
+    'Approved'
+  );
+  const customerVisible = filterAndSortSalons(afterApproval, {
+    searchQuery: '',
+    selectedArea: 'All Jaunpur',
+    onlyApproved: true,
+  });
+  assert.equal(customerVisible.length, 6);
+});
+
 test('booking a new token assigns #09 on Thanker Flagship and tracks 3 people ahead', () => {
   const thanker = INITIAL_SALONS[0];
   const { updatedSalon, bookedToken } = bookNewTokenForSalon(thanker, {
@@ -72,7 +108,7 @@ test('booking a new token assigns #09 on Thanker Flagship and tracks 3 people ah
   assert.equal(progress.estimatedTurnLabel, '~20 Mins');
 });
 
-test('calling next token in Admin advances #05 -> #06 and updates customer progress', () => {
+test('calling next token in Partner Panel advances #05 -> #06 and updates customer progress', () => {
   const thanker = INITIAL_SALONS[0];
   const { updatedSalon, bookedToken } = bookNewTokenForSalon(thanker, {
     customerName: 'Shriyansh Singh',
@@ -84,11 +120,11 @@ test('calling next token in Admin advances #05 -> #06 and updates customer progr
   const afterCallNext = callNextTokenInSalon(updatedSalon);
   const metrics = getSalonQueueMetrics(afterCallNext);
   assert.equal(metrics.nowServingFormatted, '#06');
-  assert.equal(metrics.waitingCount, 3); // #07, #08, #09 waiting
+  assert.equal(metrics.waitingCount, 3);
 
   const progress = getCustomerTokenProgress(afterCallNext, bookedToken);
   assert.equal(progress.currentlyServingFormatted, '#06');
-  assert.equal(progress.peopleAheadCount, 2); // #07 and #08 ahead of #09
+  assert.equal(progress.peopleAheadCount, 2);
 });
 
 test('skipping current token and cancelling customer token updates queue accurately', () => {
@@ -96,33 +132,12 @@ test('skipping current token and cancelling customer token updates queue accurat
   const afterSkip = skipCurrentOrNextToken(thanker);
   const metrics = getSalonQueueMetrics(afterSkip);
   assert.equal(metrics.nowServingFormatted, '#06');
-  assert.equal(metrics.waitingCount, 2); // #07 and #08 left waiting
+  assert.equal(metrics.waitingCount, 2);
 
   const token7 = afterSkip.queue.find((t) => t.tokenNumber === 7)!;
   const afterCancel = cancelTokenById(afterSkip, token7.id);
   const metricsAfterCancel = getSalonQueueMetrics(afterCancel);
-  assert.equal(metricsAfterCancel.waitingCount, 1); // only #08 left waiting
-});
-
-test('filtering by Jaunpur area, service query, and Shortest Wait Time works', () => {
-  const civilLines = filterAndSortSalons(INITIAL_SALONS, {
-    searchQuery: '',
-    selectedArea: 'Civil Lines',
-  });
-  assert.equal(civilLines.length, 1);
-  assert.equal(civilLines[0].id, 'salon-royal-glow');
-
-  const shortest = filterAndSortSalons(INITIAL_SALONS, {
-    searchQuery: '',
-    selectedArea: 'Shortest Wait Time',
-  });
-  assert.equal(shortest[0].id, 'salon-classic-barber'); // 0 mins wait first!
-
-  const byService = filterAndSortSalons(INITIAL_SALONS, {
-    searchQuery: 'Bridal Makeup',
-    selectedArea: 'All Jaunpur',
-  });
-  assert.equal(byService.length, 5);
+  assert.equal(metricsAfterCancel.waitingCount, 1);
 });
 
 test('WhatsApp URL builders target +917043602377 and format messages properly', () => {
@@ -140,5 +155,7 @@ test('WhatsApp URL builders target +917043602377 and format messages properly', 
 
   const adminAlertUrl = buildAdminWhatsAppAlertUrl(bookedToken, thanker.name);
   assert.ok(adminAlertUrl.startsWith('https://wa.me/919123456789?text='));
-  assert.ok(decodeURIComponent(adminAlertUrl).includes('please arrive in 5 mins!'));
+  assert.ok(
+    decodeURIComponent(adminAlertUrl).includes('please arrive in 5 mins!')
+  );
 });

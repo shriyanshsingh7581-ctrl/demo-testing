@@ -1,8 +1,10 @@
 node_modules
-.playwright-cli
-.aistudio
-public/assets/aistudio
+dist
 .env
-.env.local
-*.log
-src/**/*.test.ts
+.env.*
+!.env.example
+.aistudio
+*.test.ts
+DRAFT_firestore.rules
+security_spec.md
+eslint.config.js

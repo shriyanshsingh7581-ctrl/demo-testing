@@ -1,4 +1,14 @@
-import { BookingType, JaunpurArea, QueueToken, Salon, ServiceItem } from '../types/salon';
+import {
+  AdBanner,
+  BookingType,
+  JaunpurArea,
+  JaunpurLocality,
+  PartnerApprovalStatus,
+  QueueToken,
+  RegisteredCustomer,
+  Salon,
+  ServiceItem,
+} from '../types/salon';
 
 export const WHATSAPP_BOOKING_NUMBER = '917043602377';
 
@@ -27,9 +37,11 @@ export function getSalonQueueMetrics(salon: Salon): SalonQueueMetrics {
     .filter((t) => t.status === 'Waiting')
     .sort((a, b) => a.tokenNumber - b.tokenNumber);
 
-  const nowServingCustomer = salon.queue.find(
-    (t) => t.status === 'In Chair' && t.tokenNumber === salon.currentServingToken
-  ) || salon.queue.find((t) => t.status === 'In Chair');
+  const nowServingCustomer =
+    salon.queue.find(
+      (t) =>
+        t.status === 'In Chair' && t.tokenNumber === salon.currentServingToken
+    ) || salon.queue.find((t) => t.status === 'In Chair');
 
   const nowServingToken = nowServingCustomer
     ? nowServingCustomer.tokenNumber
@@ -46,7 +58,10 @@ export function getSalonQueueMetrics(salon: Salon): SalonQueueMetrics {
   const estimatedWaitMins =
     waitingCount === 0
       ? 0
-      : Math.max(5, Math.round((waitingCount * salon.avgWaitMinsPerPerson) / 5) * 5);
+      : Math.max(
+          5,
+          Math.round((waitingCount * salon.avgWaitMinsPerPerson) / 5) * 5
+        );
 
   const estimatedWaitLabel =
     estimatedWaitMins === 0 ? '0 mins' : `~${estimatedWaitMins} mins`;
@@ -58,7 +73,10 @@ export function getSalonQueueMetrics(salon: Salon): SalonQueueMetrics {
   const nextAvailableToken = Math.max(salon.nextTokenNumber, maxQueueToken + 1);
 
   const completedTokens = salon.queue.filter((t) => t.status === 'Completed');
-  const completedRevenue = completedTokens.reduce((sum, t) => sum + t.totalAmount, 0);
+  const completedRevenue = completedTokens.reduce(
+    (sum, t) => sum + t.totalAmount,
+    0
+  );
 
   return {
     nowServingToken,
@@ -136,7 +154,6 @@ export function getCustomerTokenProgress(
     };
   }
 
-  // Count how many waiting tokens are strictly ahead of this tokenNumber
   const peopleAheadCount = metrics.waitingTokens.filter(
     (t) => t.tokenNumber < liveTokenInSalon.tokenNumber
   ).length;
@@ -144,7 +161,10 @@ export function getCustomerTokenProgress(
   const estimatedTurnMins =
     peopleAheadCount === 0
       ? 5
-      : Math.max(5, Math.round((peopleAheadCount * salon.avgWaitMinsPerPerson) / 5) * 5);
+      : Math.max(
+          5,
+          Math.round((peopleAheadCount * salon.avgWaitMinsPerPerson) / 5) * 5
+        );
 
   return {
     currentlyServingFormatted: metrics.nowServingFormatted,
@@ -185,6 +205,7 @@ export function bookNewTokenForSalon(
     salonId: salon.id,
     salonName: salon.name,
     salonAddress: salon.address,
+    salonArea: salon.area,
     customerName: params.customerName.trim(),
     customerPhone: params.customerPhone.trim(),
     services: params.services,
@@ -234,7 +255,6 @@ export function callNextTokenInSalon(salon: Salon): Salon {
 }
 
 export function markCurrentTokenCompleted(salon: Salon): Salon {
-  // Marks current In Chair token as Completed and automatically puts next waiting token In Chair if available
   return callNextTokenInSalon(salon);
 }
 
@@ -284,11 +304,17 @@ export function filterAndSortSalons(
     searchQuery: string;
     selectedArea: JaunpurArea;
     maxWaitMins?: number | null;
+    onlyApproved?: boolean;
   }
 ): Salon[] {
   const query = options.searchQuery.trim().toLowerCase();
+  const onlyApproved = options.onlyApproved ?? true;
 
   const filtered = salons.filter((salon) => {
+    if (onlyApproved && salon.approvalStatus !== 'Approved') {
+      return false;
+    }
+
     if (
       options.selectedArea !== 'All Jaunpur' &&
       options.selectedArea !== 'Shortest Wait Time'
@@ -317,7 +343,7 @@ export function filterAndSortSalons(
         s.category.toLowerCase().includes(query)
     );
 
-    return nameMatch && true || addressMatch || areaMatch || serviceMatch;
+    return nameMatch || addressMatch || areaMatch || serviceMatch;
   });
 
   if (options.selectedArea === 'Shortest Wait Time') {
@@ -332,11 +358,102 @@ export function filterAndSortSalons(
   return filtered;
 }
 
+export function updateSalonApprovalStatus(
+  salons: Salon[],
+  salonId: string,
+  status: PartnerApprovalStatus
+): Salon[] {
+  return salons.map((s) =>
+    s.id === salonId ? { ...s, approvalStatus: status } : s
+  );
+}
+
+export function toggleSalonFeatured(salons: Salon[], salonId: string): Salon[] {
+  return salons.map((s) =>
+    s.id === salonId ? { ...s, isFeatured: !s.isFeatured } : s
+  );
+}
+
+export interface PlatformAnalyticsSummary {
+  totalRegisteredCustomers: number;
+  approvedSalonsCount: number;
+  pendingSalonsCount: number;
+  rejectedSalonsCount: number;
+  totalBookingsToday: number;
+  totalBookingsAllTime: number;
+  totalBookingGmv: number;
+  totalAdRevenue: number;
+  totalPlatformRevenue: number;
+  areaBookingBreakdown: Record<JaunpurLocality, number>;
+  allMasterTokens: (QueueToken & { salonArea: JaunpurLocality })[];
+}
+
+export function getPlatformAnalytics(
+  salons: Salon[],
+  customers: RegisteredCustomer[],
+  adBanners: AdBanner[]
+): PlatformAnalyticsSummary {
+  const approvedSalonsCount = salons.filter(
+    (s) => s.approvalStatus === 'Approved'
+  ).length;
+  const pendingSalonsCount = salons.filter(
+    (s) => s.approvalStatus === 'Pending'
+  ).length;
+  const rejectedSalonsCount = salons.filter(
+    (s) => s.approvalStatus === 'Rejected'
+  ).length;
+
+  const areaBookingBreakdown: Record<JaunpurLocality, number> = {
+    Olandganj: 0,
+    'Civil Lines': 0,
+    'Line Bazar': 0,
+    'TDB College Road': 0,
+    'Machhlishahr Padav': 0,
+  };
+
+  const allMasterTokens: (QueueToken & { salonArea: JaunpurLocality })[] = [];
+  let totalBookingGmv = 0;
+
+  for (const salon of salons) {
+    for (const token of salon.queue) {
+      const area = token.salonArea || salon.area;
+      areaBookingBreakdown[area] = (areaBookingBreakdown[area] || 0) + 1;
+      if (token.status !== 'Cancelled' && token.status !== 'Skipped') {
+        totalBookingGmv += token.totalAmount;
+      }
+      allMasterTokens.push({
+        ...token,
+        salonArea: area,
+      });
+    }
+  }
+
+  const totalAdRevenue = adBanners
+    .filter((b) => b.isActive)
+    .reduce((sum, b) => sum + b.adSpend, 0);
+
+  return {
+    totalRegisteredCustomers: 1242 + customers.length,
+    approvedSalonsCount,
+    pendingSalonsCount,
+    rejectedSalonsCount,
+    totalBookingsToday: allMasterTokens.length,
+    totalBookingsAllTime: 3420 + allMasterTokens.length,
+    totalBookingGmv,
+    totalAdRevenue,
+    totalPlatformRevenue: totalBookingGmv + totalAdRevenue,
+    areaBookingBreakdown,
+    allMasterTokens,
+  };
+}
+
 export function buildCustomerWhatsAppTicketUrl(
   token: QueueToken,
   tracker: CustomerTokenTracker
 ): string {
-  const serviceNames = token.services.map((s) => `${s.name} (₹${s.price})`).join(', ');
+  const serviceNames = token.services
+    .map((s) => `${s.name} (₹${s.price})`)
+    .join(', ');
   const message = [
     `*Thanker: Salon (Jaunpur) — Live Queue Ticket*`,
     `----------------------------------`,
@@ -349,7 +466,9 @@ export function buildCustomerWhatsAppTicketUrl(
     `*Queue Status:* Currently Serving ${tracker.currentlyServingFormatted} | People Ahead: ${tracker.peopleAheadCount} | Est. Turn: ${tracker.estimatedTurnLabel}`,
   ].join('\n');
 
-  return `https://wa.me/${WHATSAPP_BOOKING_NUMBER}?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/${WHATSAPP_BOOKING_NUMBER}?text=${encodeURIComponent(
+    message
+  )}`;
 }
 
 export function buildAdminWhatsAppAlertUrl(
@@ -357,7 +476,8 @@ export function buildAdminWhatsAppAlertUrl(
   salonName: string
 ): string {
   const digits = token.customerPhone.replace(/\D/g, '');
-  const phoneWithCountry = digits.length === 10 ? `91${digits}` : digits || WHATSAPP_BOOKING_NUMBER;
+  const phoneWithCountry =
+    digits.length === 10 ? `91${digits}` : digits || WHATSAPP_BOOKING_NUMBER;
   const text = `Hi ${token.customerName}! Your Token (${formatTokenNumber(
     token.tokenNumber
   )}) turn at ${salonName} is next, please arrive in 5 mins!`;

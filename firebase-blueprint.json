@@ -1,0 +1,265 @@
+{
+  "entities": {
+    "Salon": {
+      "title": "Salon",
+      "description": "A salon partner in Jaunpur with live queue state, services menu, and approval status.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique salon identifier",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Salon display name",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "locality": {
+          "type": "string",
+          "description": "Jaunpur locality area",
+          "enum": [
+            "Olandganj",
+            "Civil Lines",
+            "Line Bazar",
+            "TDB College Road",
+            "Machhlishahr Padav"
+          ]
+        },
+        "address": {
+          "type": "string",
+          "description": "Full street address in Jaunpur",
+          "minLength": 1,
+          "maxLength": 250
+        },
+        "distanceKm": {
+          "type": "number",
+          "description": "Distance in km from Olandganj center"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Customer rating from 1 to 5"
+        },
+        "reviewCount": {
+          "type": "number",
+          "description": "Total number of customer reviews"
+        },
+        "nowServingToken": {
+          "type": "number",
+          "description": "Currently active token number on the chair"
+        },
+        "avgWaitMinsPerPerson": {
+          "type": "number",
+          "description": "Average wait minutes per waiting customer"
+        },
+        "completedTodayCount": {
+          "type": "number",
+          "description": "Completed tokens count today"
+        },
+        "revenueToday": {
+          "type": "number",
+          "description": "Revenue collected today in INR"
+        },
+        "artworkVariant": {
+          "type": "string",
+          "description": "Visual interior theme key",
+          "enum": ["flagship", "royal", "urban", "aura", "classic"]
+        },
+        "mapQuery": {
+          "type": "string",
+          "description": "Google Maps search query string",
+          "maxLength": 250
+        },
+        "ownerName": {
+          "type": "string",
+          "description": "Salon partner owner full name",
+          "maxLength": 100
+        },
+        "ownerPhone": {
+          "type": "string",
+          "description": "Salon partner contact phone",
+          "maxLength": 30
+        },
+        "ownerId": {
+          "type": "string",
+          "description": "UID of the user or partner who created/manages the salon",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "category": {
+          "type": "string",
+          "description": "Salon gender category",
+          "enum": ["Men's", "Ladies'", "Unisex"]
+        },
+        "approvalStatus": {
+          "type": "string",
+          "description": "Super Admin approval status",
+          "enum": ["Approved", "Pending", "Rejected"]
+        },
+        "isFeatured": {
+          "type": "boolean",
+          "description": "Whether the salon is featured/sponsored"
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "Optional custom salon photo URL or data URI",
+          "maxLength": 500000
+        },
+        "registeredAt": {
+          "type": "string",
+          "description": "Human readable registration timestamp label",
+          "maxLength": 80
+        },
+        "services": {
+          "type": "array",
+          "description": "Bounded list of salon services (up to 30 items)"
+        },
+        "queue": {
+          "type": "array",
+          "description": "Bounded list of active/today queue tokens (up to 100 items)"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when last updated"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "locality",
+        "address",
+        "nowServingToken",
+        "avgWaitMinsPerPerson",
+        "approvalStatus",
+        "ownerId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PlatformState": {
+      "title": "PlatformState",
+      "description": "Real-time shared state document syncing salons, ad banners, and push notifications across all 3 portals.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Document identifier (e.g., jaunpur_live_v2)",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "salons": {
+          "type": "array",
+          "description": "Bounded array of Jaunpur salons (max 50)"
+        },
+        "adBanners": {
+          "type": "array",
+          "description": "Bounded array of sponsored ad banners (max 25)"
+        },
+        "notifications": {
+          "type": "array",
+          "description": "Bounded array of push notifications (max 50)"
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "UID or portal identifier of the updater",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "salons",
+        "adBanners",
+        "notifications",
+        "updatedBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserPrivateProfile": {
+      "title": "UserPrivateProfile",
+      "description": "Isolated PII profile for an authenticated customer or salon owner.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Firebase Auth UID of the owner",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "description": "Customer full name",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "description": "Customer phone number",
+          "minLength": 5,
+          "maxLength": 30
+        },
+        "locality": {
+          "type": "string",
+          "description": "Customer locality in Jaunpur",
+          "maxLength": 80
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp"
+        }
+      },
+      "required": [
+        "userId",
+        "name",
+        "phone",
+        "locality",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/salons/{salonId}": {
+      "schema": {
+        "$ref": "#/entities/Salon"
+      },
+      "description": "Collection of Jaunpur salon documents with live queue state."
+    },
+    "/platform_state/{stateId}": {
+      "schema": {
+        "$ref": "#/entities/PlatformState"
+      },
+      "description": "Real-time synchronized state document for the 3-Tier Thanker: Salon platform."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": {
+        "$ref": "#/entities/UserPrivateProfile"
+      },
+      "description": "Split-collection isolated PII storage for user phone numbers and personal details."
+    }
+  }
+}

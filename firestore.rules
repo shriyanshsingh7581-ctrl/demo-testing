@@ -1,0 +1,291 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'singhshriyansh51@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // 3. Entity Validation Blueprints (Anti-Update-Gap)
+    function isValidSalon(data) {
+      return data.keys().hasAll([
+          'id',
+          'name',
+          'locality',
+          'address',
+          'nowServingToken',
+          'avgWaitMinsPerPerson',
+          'approvalStatus',
+          'ownerId',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'name',
+          'locality',
+          'address',
+          'distanceKm',
+          'rating',
+          'reviewCount',
+          'nowServingToken',
+          'avgWaitMinsPerPerson',
+          'completedTodayCount',
+          'revenueToday',
+          'artworkVariant',
+          'mapQuery',
+          'ownerName',
+          'ownerPhone',
+          'ownerId',
+          'category',
+          'approvalStatus',
+          'isFeatured',
+          'photoUrl',
+          'registeredAt',
+          'services',
+          'queue',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.locality is string && data.locality.size() >= 1 && data.locality.size() <= 60 &&
+        (data.locality in ['Olandganj', 'Civil Lines', 'Line Bazar', 'TDB College Road', 'Machhlishahr Padav']) &&
+        data.address is string && data.address.size() >= 1 && data.address.size() <= 250 &&
+        data.nowServingToken is number && data.nowServingToken >= 0 && data.nowServingToken <= 10000 &&
+        data.avgWaitMinsPerPerson is number && data.avgWaitMinsPerPerson >= 1 && data.avgWaitMinsPerPerson <= 240 &&
+        data.approvalStatus is string && data.approvalStatus.size() <= 20 &&
+        (data.approvalStatus in ['Approved', 'Pending', 'Rejected']) &&
+        isValidId(data.ownerId) &&
+        (!('distanceKm' in data) || (data.distanceKm is number && data.distanceKm >= 0 && data.distanceKm <= 500)) &&
+        (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5)) &&
+        (!('reviewCount' in data) || (data.reviewCount is number && data.reviewCount >= 0 && data.reviewCount <= 1000000)) &&
+        (!('completedTodayCount' in data) || (data.completedTodayCount is number && data.completedTodayCount >= 0 && data.completedTodayCount <= 10000)) &&
+        (!('revenueToday' in data) || (data.revenueToday is number && data.revenueToday >= 0 && data.revenueToday <= 100000000)) &&
+        (!('artworkVariant' in data) || (data.artworkVariant is string && data.artworkVariant.size() <= 20 && (data.artworkVariant in ['flagship', 'royal', 'urban', 'aura', 'classic']))) &&
+        (!('mapQuery' in data) || (data.mapQuery is string && data.mapQuery.size() <= 250)) &&
+        (!('ownerName' in data) || (data.ownerName is string && data.ownerName.size() <= 100)) &&
+        (!('ownerPhone' in data) || (data.ownerPhone is string && data.ownerPhone.size() <= 30)) &&
+        (!('category' in data) || (data.category is string && data.category.size() <= 20 && (data.category in ["Men's", "Ladies'", "Unisex"]))) &&
+        (!('isFeatured' in data) || (data.isFeatured is bool)) &&
+        (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500000)) &&
+        (!('registeredAt' in data) || (data.registeredAt is string && data.registeredAt.size() <= 80)) &&
+        (!('services' in data) || (data.services is list && data.services.size() <= 30 && (data.services.size() == 0 || data.services[0] is map))) &&
+        (!('queue' in data) || (data.queue is list && data.queue.size() <= 100 && (data.queue.size() == 0 || data.queue[0] is map))) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPlatformState(data) {
+      return data.keys().hasAll([
+          'id',
+          'salons',
+          'adBanners',
+          'notifications',
+          'updatedBy',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id',
+          'salons',
+          'adBanners',
+          'notifications',
+          'updatedBy',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.salons is list && data.salons.size() <= 50 && (data.salons.size() == 0 || data.salons[0] is map) &&
+        data.adBanners is list && data.adBanners.size() <= 25 && (data.adBanners.size() == 0 || data.adBanners[0] is map) &&
+        data.notifications is list && data.notifications.size() <= 50 && (data.notifications.size() == 0 || data.notifications[0] is map) &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivateProfile(data, userId) {
+      return data.keys().hasAll([
+          'userId',
+          'name',
+          'phone',
+          'locality',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'userId',
+          'name',
+          'phone',
+          'locality',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.userId == userId &&
+        isValidId(data.userId) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 30 &&
+        data.locality is string && data.locality.size() >= 1 && data.locality.size() <= 80 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // 4. Admins Lookup Collection (System-Managed)
+    match /admins/{adminId} {
+      allow get: if isOwner(adminId) || isAdmin();
+      allow list, create, update, delete: if false;
+    }
+
+    // 5. Salons Collection (/salons/{salonId})
+    match /salons/{salonId} {
+      allow get: if isVerifiedUser() && isValidId(salonId) && (
+        existing().approvalStatus == 'Approved' ||
+        existing().ownerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if false;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(salonId) &&
+        isValidSalon(incoming()) &&
+        incoming().id == salonId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (incoming().approvalStatus == 'Pending' || isAdmin());
+
+      allow update: if isVerifiedUser() &&
+        isValidId(salonId) &&
+        isValidSalon(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (existing().approvalStatus != 'Rejected' || isAdmin()) && (
+          isAdmin() ||
+          // Action 1: Owner updates profile, services, or live queue
+          (existing().ownerId == request.auth.uid &&
+            incoming().approvalStatus == existing().approvalStatus &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'name',
+              'address',
+              'mapQuery',
+              'photoUrl',
+              'avgWaitMinsPerPerson',
+              'services',
+              'queue',
+              'nowServingToken',
+              'completedTodayCount',
+              'revenueToday',
+              'updatedAt'
+            ])) ||
+          // Action 2: Verified Customer books/cancels token in Approved salon queue
+          (existing().approvalStatus == 'Approved' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'queue',
+              'updatedAt'
+            ]))
+        );
+
+      allow delete: if isAdmin() && isValidId(salonId);
+    }
+
+    // 6. Platform Live State Document (/platform_state/{stateId})
+    match /platform_state/{stateId} {
+      allow get: if isVerifiedUser() && isValidId(stateId);
+      allow list: if false;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(stateId) &&
+        isValidPlatformState(incoming()) &&
+        incoming().id == stateId &&
+        incoming().updatedBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser() &&
+        isValidId(stateId) &&
+        isValidPlatformState(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().updatedBy == request.auth.uid && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'salons',
+            'adBanners',
+            'notifications',
+            'updatedBy',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if isAdmin() && isValidId(stateId);
+    }
+
+    // 7. Split-Collection Isolated User PII (/users/{userId}/private/{docId})
+    match /users/{userId}/private/{docId} {
+      allow get: if isValidId(userId) && isValidId(docId) && (isOwner(userId) || isAdmin());
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+        isValidId(userId) &&
+        isValidId(docId) &&
+        isValidUserPrivateProfile(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        existsAfter(/databases/$(database)/documents/users/$(userId)/private/$(docId));
+
+      allow update: if isOwner(userId) &&
+        isValidId(userId) &&
+        isValidId(docId) &&
+        isValidUserPrivateProfile(incoming(), userId) &&
+        incoming().userId == existing().userId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name',
+            'phone',
+            'locality',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if isValidId(userId) && isValidId(docId) && (isOwner(userId) || isAdmin());
+    }
+  }
+}
